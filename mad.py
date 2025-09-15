@@ -71,12 +71,12 @@ st.set_page_config(
 # """, unsafe_allow_html=True)
 
 # Title and description
-st.markdown('## MLIP Playground', unsafe_allow_html=True)
-st.write('#### Run, test and compare >17 state-of-the-art universal machine learning interatomic potentials (MLIPs) for atomistic simulations of molecules and materials')
+st.markdown('## ML-MAD', unsafe_allow_html=True)
+st.write('#### State-of-the-art universal machine learning interatomic potentials (MLIPs) for atomistic simulations of molecules and materials')
 st.markdown('Upload molecular structure files or select from predefined examples, then compute energies and forces using foundation models such as those from MACE or FairChem (Meta).', unsafe_allow_html=True)
 
 # Create a directory for sample structures if it doesn't exist
-SAMPLE_DIR = "sample_structures"
+SAMPLE_DIR = "structures"
 os.makedirs(SAMPLE_DIR, exist_ok=True)
 
 # Dictionary of sample structures
