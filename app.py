@@ -154,6 +154,10 @@ def check_atom_limit(atoms_obj, selected_model):
     if atoms_obj is None:
         return True
     
+    # Only enforce limits if running on Streamlit Cloud
+    if not is_streamlit_cloud:
+        return True
+
     num_atoms = len(atoms_obj)
     if ('UMA' in selected_model or 'ESEN MD' in selected_model) and num_atoms > MAX_ATOMS_CLOUD_UMA:
         st.error(f"⚠️ Error: Your structure contains {num_atoms} atoms, which exceeds the {MAX_ATOMS_CLOUD_UMA} atom limit for Streamlit Cloud deployments for large sized FairChem models. For larger systems, please download the repository from GitHub and run it locally on your machine where no atom limit applies.")
