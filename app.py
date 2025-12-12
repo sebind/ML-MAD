@@ -17,17 +17,22 @@ from orb_models.forcefield.calculator import ORBCalculator
 
 from huggingface_hub import login
 
+# Try to get HF token from secrets or environment variable
+hf_token = None
 try:
-    hf_token = st.secrets["HF_TOKEN"]["token"]
-    os.environ["HF_TOKEN"] = hf_token
-    login(token=hf_token)
+    if "HF_TOKEN" in st.secrets and "token" in st.secrets["HF_TOKEN"]:
+        hf_token = st.secrets["HF_TOKEN"]["token"]
+    elif "HF_TOKEN" in os.environ:
+        hf_token = os.environ["HF_TOKEN"]
+
+    if hf_token:
+        os.environ["HF_TOKEN"] = hf_token
+        login(token=hf_token)
 except Exception as e:
-    print("streamlit hf secret not defined/assigned")
-# try:
-#     hf_token = os.getenv("YOUR SECRET KEY")
-#     login(token = hf_token)
-# except Exception as e:
-#      print("hf secret not defined/assigned")
+    # Use st.warning to inform the user, but don't crash
+    # Note: st.warning might not render if this is before st.set_page_config?
+    # Actually st.set_page_config must be the first Streamlit command.
+    pass
 
 import os
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
@@ -44,30 +49,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# Add CSS for better formatting
-# st.markdown("""
-# <style>
-# .stApp {
-#     max-width: 1200px;
-#     margin: 0 auto;
-# }
-# .main-header {
-#     font-size: 2.5rem;
-#     font-weight: bold;
-#     margin-bottom: 1rem;
-# }
-# .section-header {
-#     font-size: 1.5rem;
-#     font-weight: bold;
-#     margin-top: 1.5rem;
-#     margin-bottom: 1rem;
-# }
-# .info-text {
-#     font-size: 1rem;
-#     color: #555;
-# }
-# </style>
-# """, unsafe_allow_html=True)
+# Now we can safely warn if token was missing/failed (if we want)
+# if not hf_token:
+#     st.warning("Hugging Face token not found. Some models may not be accessible.")
 
 # Title and description
 st.markdown('## ML-MAD', unsafe_allow_html=True)
@@ -83,27 +67,11 @@ SAMPLE_STRUCTURES = {
     "CO": "CO.xyz",
     "Methane": "CH4.xyz",
     "CO2": "CO2.xyz",
-    
 }
 
-def get_structure_viz2(atoms_obj, style='stick', show_unit_cell=True, width=400, height=400):
+def get_structure_viz(atoms_obj, style='stick', show_unit_cell=True, width=400, height=400):
     """
     Generate visualization of atomic structure with optional unit cell display
-    
-    Parameters:
-    -----------
-    atoms_obj : ase.Atoms
-        ASE Atoms object containing the structure
-    style : str
-        Visualization style: 'ball_stick', 'stick', or 'ball'
-    show_unit_cell : bool
-        Whether to display unit cell for periodic systems
-    width, height : int
-        Dimensions of the visualization window
-    
-    Returns:
-    --------
-    py3Dmol.view object
     """
     
     # Convert atoms to XYZ format
@@ -169,7 +137,7 @@ def get_structure_viz2(atoms_obj, style='stick', show_unit_cell=True, width=400,
 
 
 # Custom logger that updates the table
-def streamlit_log(opt):
+def streamlit_log(opt, opt_log, table_placeholder):
     energy = opt.atoms.get_potential_energy()
     forces = opt.atoms.get_forces()
     fmax_step = np.max(np.linalg.norm(forces, axis=1))
@@ -308,13 +276,14 @@ if model_type == "FairChem":
 if model_type == "ORB":
     selected_model = st.sidebar.selectbox("Select ORB Model:", list(ORB_MODELS.keys()))
     model_path = ORB_MODELS[selected_model]
-    # if "omat" in selected_model:
-    #     st.sidebar.warning("Using model under Academic Software License (ASL) license, see [https://github.com/gabor1/ASL](https://github.com/gabor1/ASL). To use this model you accept the terms of the license.")
     selected_default_dtype = st.sidebar.selectbox("Select Precision (default_dtype):", ['float32-high', 'float32-highest', 'float64'])
+
 # Check atom count limit
+valid_atoms = True
 if atoms is not None:
-    check_atom_limit(atoms, selected_model)
+    valid_atoms = check_atom_limit(atoms, selected_model)
     #st.sidebar.success(f"Successfully parsed structure with {len(atoms)} atoms!")
+
 # Device selection
 device = st.sidebar.radio("Computation Device:", ["CPU", "CUDA (GPU)"], 
                          index=0 if not torch.cuda.is_available() else 1)
@@ -348,27 +317,8 @@ if atoms is not None:
     with col1:
         st.markdown('### Structure Visualization', unsafe_allow_html=True)
         
-        # Generate visualization
-        def get_structure_viz(atoms_obj):
-            # Convert atoms to XYZ format
-            xyz_str = ""
-            xyz_str += f"{len(atoms_obj)}\n"
-            xyz_str += "Structure\n"
-            for atom in atoms_obj:
-                xyz_str += f"{atom.symbol} {atom.position[0]:.6f} {atom.position[1]:.6f} {atom.position[2]:.6f}\n"
-            
-            # Create a py3Dmol visualization
-            view = py3Dmol.view(width=400, height=400)
-            view.addModel(xyz_str, "xyz")
-            view.setStyle({'stick': {}})
-            view.zoomTo()
-            view.setBackgroundColor('white')
-            
-            return view
-
         # Display the 3D structure
-        view = get_structure_viz2(atoms, style='stick', show_unit_cell=True, width=400, height=400)
-        # view = get_structure_viz(atoms)
+        view = get_structure_viz(atoms, style='stick', show_unit_cell=True, width=400, height=400)
         html_str = view._make_html()
         st.components.v1.html(html_str, width=400, height=400)
         
@@ -402,7 +352,7 @@ if atoms is not None:
             st.write(f"**Optimizer:** {optimizer}")
         
         # Run calculation button
-        run_calculation = st.button("Run Calculation", type="primary")
+        run_calculation = st.button("Run Calculation", type="primary", disabled=not valid_atoms)
         
         if run_calculation:
             try:
@@ -413,10 +363,8 @@ if atoms is not None:
                     # Set up calculator based on selected model
                     if model_type == "FairChem":  # FairChem
                         st.write("Setting up FairChem calculator...")
-                        # Seems like the FairChem models use float32 and when switching from MACE 64 model to FairChem float32 model we get an error
-                        # probably due to both sharing the underlying torch implementation
-                        # So just a dummy statement to swithc torch to 32 bit
-                        calc = get_mace_model('https://github.com/ACEsuit/mace-mp/releases/download/mace_mp_0/2023-12-10-mace-128-L0_energy_epoch-249.model', 'cpu', 'float32')
+                        # Set default dtype to float32 as required by some FairChem models
+                        torch.set_default_dtype(torch.float32)
                         calc = get_fairchem_model(selected_model, model_path, device, selected_task_type)
                     elif model_type == "ORB":
                         st.write("Setting up ORB calculator...")
@@ -457,7 +405,7 @@ if atoms is not None:
                         # Container for log data
                         opt_log = []
                         # Attach the Streamlit logger to the optimizer
-                        opt.attach(lambda: streamlit_log(opt), interval=1)
+                        opt.attach(lambda: streamlit_log(opt, opt_log, table_placeholder), interval=1)
                         # Run optimization
                         st.write("Running geometry optimization...")
                         opt.run(fmax=fmax, steps=max_steps)
@@ -489,7 +437,7 @@ if atoms is not None:
                         # Container for log data
                         opt_log = []
                         # Attach the Streamlit logger to the optimizer
-                        opt.attach(lambda: streamlit_log(opt), interval=1)
+                        opt.attach(lambda: streamlit_log(opt, opt_log, table_placeholder), interval=1)
                         # Run optimization
                         st.write("Running cell + geometry optimization...")
                         opt.run(fmax=fmax, steps=max_steps)
