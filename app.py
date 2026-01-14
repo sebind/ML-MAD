@@ -10,11 +10,12 @@ from ase.constraints import FixAtoms
 from ase.filters import FrechetCellFilter
 from ase.visualize import view
 import py3Dmol
+import pandas as pd
+
 from mace.calculators import mace_mp
 from fairchem.core import pretrained_mlip, FAIRChemCalculator
-import pandas as pd
-# from orb_models.forcefield import pretrained
-# from orb_models.forcefield.calculator import ORBCalculator
+from orb_models.forcefield import pretrained
+from orb_models.forcefield.calculator import ORBCalculator
 from mattersim.forcefield import MatterSimCalculator
 from sevenn.calculator import SevenNetCalculator
 
@@ -47,8 +48,8 @@ MAX_ATOMS_CLOUD_UMA = 500
 
 # Set page configuration
 st.set_page_config(
-    page_title="Molecular Structure Analysis",
-    page_icon="🧪",
+    page_title="Machine Learning of Materials for Accelerated Discovery",
+    page_icon="💠",
     layout="wide"
 )
 
@@ -79,8 +80,8 @@ st.set_page_config(
 
 # Title and description
 st.markdown('## ML-MAD', unsafe_allow_html=True)
-st.write('#### State-of-the-art universal machine learning interatomic potentials (MLIPs) for atomistic simulations of molecules and materials')
-st.markdown('Upload molecular structure files or select from predefined examples, then compute energies and forces using foundation models such as those from MACE or FairChem (Meta).', unsafe_allow_html=True)
+st.write('#### Universal Machine Learning Interatomic Potentials (MLIPs) for atomistic simulations of molecules and materials')
+st.markdown('Compute energies and forces using foundation models.', unsafe_allow_html=True)
 
 # Create a directory for sample structures if it doesn't exist
 SAMPLE_DIR = "structures"
@@ -238,7 +239,8 @@ FAIRCHEM_MODELS = {
 
 # Define the available ORB models
 ORB_MODELS = {
-    "V3 OMAT Conserving": "orb_v3_conservative_inf_omat",
+    "V3 OMOL Conserving": "orb-v3-conservative-omol",
+    "V3 OMOL Direct": "orb-v3-direct-omol"
 }
 
 # Define the available MatterSim models
@@ -281,7 +283,7 @@ def get_sevennet_model(model_name, device):
 st.sidebar.markdown("## Input Options")
 
 # Input method selection
-input_method = st.sidebar.radio("Choose Input Method:", ["Select Example", "Upload File", "Paste Content"])
+input_method = st.sidebar.radio("Input Structure:", ["Select Example", "Upload File", "Paste Content"])
 
 # Initialize atoms variable
 atoms = None
