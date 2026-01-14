@@ -1,3 +1,6 @@
+# Build dependencies
+pybind11
+
 # Base packages
 streamlit
 pandas
