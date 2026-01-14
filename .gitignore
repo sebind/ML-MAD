@@ -43,3 +43,5 @@ Thumbs.db
 # Project specific
 debug.log
 streamlit.log
+gitkey
+gitkey.pub

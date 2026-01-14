@@ -13,8 +13,8 @@ import py3Dmol
 from mace.calculators import mace_mp
 from fairchem.core import pretrained_mlip, FAIRChemCalculator
 import pandas as pd
-from orb_models.forcefield import pretrained
-from orb_models.forcefield.calculator import ORBCalculator
+# from orb_models.forcefield import pretrained
+# from orb_models.forcefield.calculator import ORBCalculator
 from mattersim.forcefield import MatterSimCalculator
 from sevenn.calculator import SevenNetCalculator
 
@@ -497,8 +497,9 @@ if atoms is not None:
                         calc = get_fairchem_model(selected_model, model_path, device, selected_task_type)
                     elif model_type == "ORB":
                         st.write("Setting up ORB calculator...")
-                        orbff = pretrained.orb_v3_conservative_inf_omat(device=device, precision=selected_default_dtype)
-                        calc = ORBCalculator(orbff, device=device)
+                        # orbff = pretrained.orb_v3_conservative_inf_omat(device=device, precision=selected_default_dtype)
+                        # calc = ORBCalculator(orbff, device=device)
+                        st.warning("ORB models are temporarily disabled on Streamlit Cloud due to dependency issues.")
                     elif model_type == "MatterSim":
                         st.write("Setting up MatterSim calculator...")
                         # Since we don't have the files locally, we might need a way to get them.
