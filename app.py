@@ -15,20 +15,27 @@ from fairchem.core import pretrained_mlip, FAIRChemCalculator
 import pandas as pd
 from orb_models.forcefield import pretrained
 from orb_models.forcefield.calculator import ORBCalculator
+from mattersim.forcefield import MatterSimCalculator
+from sevenn.calculator import SevenNetCalculator
 
 from huggingface_hub import login
 
+# Handle Hugging Face Login
+hf_token = os.environ.get("HF_TOKEN")
 try:
-    hf_token = st.secrets["HF_TOKEN"]["token"]
+    if "HF_TOKEN" in st.secrets:
+        hf_token = st.secrets["HF_TOKEN"].get("token", hf_token)
+except Exception:
+    pass
+
+if hf_token:
     os.environ["HF_TOKEN"] = hf_token
-    login(token=hf_token)
-except Exception as e:
-    print("streamlit hf secret not defined/assigned")
-# try:
-#     hf_token = os.getenv("YOUR SECRET KEY")
-#     login(token = hf_token)
-# except Exception as e:
-#      print("hf secret not defined/assigned")
+    try:
+        login(token=hf_token)
+    except Exception as e:
+        print(f"Error logging in to Hugging Face: {str(e)}")
+else:
+    print("HF_TOKEN not found in secrets or environment")
 
 import os
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
@@ -85,8 +92,7 @@ SAMPLE_STRUCTURES = {
     "Methane": "CH4.xyz",
     "Benzene": "C6H6.xyz",
     "Ethane": "C2H6.xyz",
-    "Caffeine": "caffeine.xyz",
-    "Ibuprofen": "ibuprofen.xyz"
+    "Caffeine": "caffeine.xyz"
 }
 
 def get_structure_viz2(atoms_obj, style='stick', show_unit_cell=True, width=400, height=400):
@@ -166,13 +172,13 @@ def get_structure_viz2(atoms_obj, style='stick', show_unit_cell=True, width=400,
             })
     
     view.zoomTo()
-    view.setBackgroundColor('white')
+    view.setBackgroundColor('#F5F5DC')
     
     return view
 
 
 # Custom logger that updates the table
-def streamlit_log(opt):
+def streamlit_log(opt, opt_log, table_placeholder):
     energy = opt.atoms.get_potential_energy()
     forces = opt.atoms.get_forces()
     fmax_step = np.max(np.linalg.norm(forces, axis=1))
@@ -187,6 +193,10 @@ def streamlit_log(opt):
 # Function to check atom count limits
 def check_atom_limit(atoms_obj, selected_model):
     if atoms_obj is None:
+        return True
+    
+    # Only enforce limits on Streamlit Cloud
+    if not is_streamlit_cloud:
         return True
     
     num_atoms = len(atoms_obj)
@@ -220,7 +230,7 @@ MACE_MODELS = {
 
 # Define the available FairChem models
 FAIRCHEM_MODELS = {
-    "UMA Small": "uma-sm",
+    "UMA Small": "uma-s-1p1",
     "ESEN MD Direct All OMOL": "esen-md-direct-all-omol",
     "ESEN SM Conserving All OMOL": "esen-sm-conserving-all-omol",
     "ESEN SM Direct All OMOL": "esen-sm-direct-all-omol"
@@ -229,6 +239,20 @@ FAIRCHEM_MODELS = {
 # Define the available ORB models
 ORB_MODELS = {
     "V3 OMAT Conserving": "orb_v3_conservative_inf_omat",
+}
+
+# Define the available MatterSim models
+MATTERSIM_MODELS = {
+    "MatterSim v1.0.0-1M": "mattersim-v1.0.0-1M.pth",
+    "MatterSim v1.0.0-5M": "mattersim-v1.0.0-5M.pth",
+}
+
+# Define the available SevenNet models
+SEVENNET_MODELS = {
+    "SevenNet-0": "SevenNet-0",
+    "SevenNet-MF-OMPA": "7net-mf-ompa",
+    "SevenNet-OMAT": "7net-omat",
+    "SevenNet-l3i5": "7net-l3i5"
 }
 
 @st.cache_resource
@@ -244,6 +268,14 @@ def get_fairchem_model(selected_model, model_path, device, selected_task_type):
     else:
         calc = FAIRChemCalculator(predictor)
     return calc
+
+@st.cache_resource
+def get_mattersim_model(model_path, device):
+    return MatterSimCalculator(model_path=model_path, device=device)
+
+@st.cache_resource
+def get_sevennet_model(model_name, device):
+    return SevenNetCalculator(model=model_name, device=device)
 
 # Sidebar for file input and parameters
 st.sidebar.markdown("## Input Options")
@@ -318,7 +350,7 @@ elif input_method == "Paste Content":
 
 # Model selection
 st.sidebar.markdown("## Model Selection")
-model_type = st.sidebar.radio("Select Model Type:", ["MACE", "FairChem", "ORB"])
+model_type = st.sidebar.radio("Select Model Type:", ["MACE", "FairChem", "ORB", "MatterSim", "SevenNet"])
 
 selected_task_type = None
 if model_type == "MACE":
@@ -339,6 +371,20 @@ if model_type == "ORB":
     # if "omat" in selected_model:
     #     st.sidebar.warning("Using model under Academic Software License (ASL) license, see [https://github.com/gabor1/ASL](https://github.com/gabor1/ASL). To use this model you accept the terms of the license.")
     selected_default_dtype = st.sidebar.selectbox("Select Precision (default_dtype):", ['float32-high', 'float32-highest', 'float64'])
+if model_type == "MatterSim":
+    selected_model = st.sidebar.selectbox("Select MatterSim Model:", list(MATTERSIM_MODELS.keys()))
+    # For now, we'll assume the model needs to be downloaded or is available at a path.
+    # Since we can't easily download 1M/5M models on the fly without a URL, we'll try to load it.
+    # Users might need to download it manually or we'd need a direct link.
+    # Assuming MatterSimCalculator handles model loading/downloading if provided a name?
+    # Based on the example, it takes a path.
+    # Let's assume for this integration we pass the name and let the user know they might need the file.
+    model_path = MATTERSIM_MODELS[selected_model]
+    st.info("Note: MatterSim models (1M/5M) are large. Ensure you have the model file or that the calculator can download it.")
+if model_type == "SevenNet":
+    selected_model = st.sidebar.selectbox("Select SevenNet Model:", list(SEVENNET_MODELS.keys()))
+    model_name = SEVENNET_MODELS[selected_model]
+
 # Check atom count limit
 if atoms is not None:
     check_atom_limit(atoms, selected_model)
@@ -390,7 +436,7 @@ if atoms is not None:
             view.addModel(xyz_str, "xyz")
             view.setStyle({'stick': {}})
             view.zoomTo()
-            view.setBackgroundColor('white')
+            view.setBackgroundColor('#F5F5DC')
             
             return view
 
@@ -453,6 +499,25 @@ if atoms is not None:
                         st.write("Setting up ORB calculator...")
                         orbff = pretrained.orb_v3_conservative_inf_omat(device=device, precision=selected_default_dtype)
                         calc = ORBCalculator(orbff, device=device)
+                    elif model_type == "MatterSim":
+                        st.write("Setting up MatterSim calculator...")
+                        # Since we don't have the files locally, we might need a way to get them.
+                        # The example showed loading from a path.
+                        # If the library supports auto-downloading, great. If not, this might fail without the file.
+                        # For now, we try to initialize it.
+                        try:
+                             calc = get_mattersim_model(model_path, device)
+                        except Exception as e:
+                             st.error(f"Failed to load MatterSim model: {e}")
+                             st.stop()
+                    elif model_type == "SevenNet":
+                        st.write("Setting up SevenNet calculator...")
+                        try:
+                            calc = get_sevennet_model(model_name, device)
+                        except Exception as e:
+                            st.error(f"Failed to load SevenNet model: {e}")
+                            st.stop()
+
                     # Attach calculator to atoms
                     calc_atoms.calc = calc
                     
@@ -488,7 +553,7 @@ if atoms is not None:
                         # Container for log data
                         opt_log = []
                         # Attach the Streamlit logger to the optimizer
-                        opt.attach(lambda: streamlit_log(opt), interval=1)
+                        opt.attach(lambda: streamlit_log(opt, opt_log, table_placeholder), interval=1)
                         # Run optimization
                         st.write("Running geometry optimization...")
                         opt.run(fmax=fmax, steps=max_steps)
@@ -520,7 +585,7 @@ if atoms is not None:
                         # Container for log data
                         opt_log = []
                         # Attach the Streamlit logger to the optimizer
-                        opt.attach(lambda: streamlit_log(opt), interval=1)
+                        opt.attach(lambda: streamlit_log(opt, opt_log, table_placeholder), interval=1)
                         # Run optimization
                         st.write("Running cell + geometry optimization...")
                         opt.run(fmax=fmax, steps=max_steps)

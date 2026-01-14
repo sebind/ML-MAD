@@ -1,3 +1,6 @@
+# Build dependencies
+pybind11
+
 # Base packages
 streamlit
 pandas
@@ -15,4 +18,8 @@ git+https://github.com/manassharma07/mace_e3nn_new.git@main#egg=mace_e3nn_new
 py3dmol
 huggingface_hub
 hf_xet
+# Dependency for orb-models not on PyPI
+git+https://github.com/u1234x1234/pynanoflann.git
 orb-models
+mattersim
+sevenn
