@@ -1,0 +1,31 @@
+
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8501
+  Network URL: http://192.168.29.177:8501
+
+cuequivariance or cuequivariance_torch is not available. Cuequivariance acceleration will be disabled.
+/home/sebin/.local/lib/python3.10/site-packages/torchtnt/utils/version.py:12: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+/home/sebin/.local/lib/python3.10/site-packages/google/api_core/_python_version_support.py:275: FutureWarning: You are using a Python version (3.10.12) which Google will stop supporting in new releases of google.api_core once it reaches its end of life (2026-10-04). Please upgrade to the latest Python version, or at least Python 3.11, to continue receiving updates for google.api_core past that date.
+  warnings.warn(message, FutureWarning)
+Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured.
+Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured.
+Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured.
+Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured.
+Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured.
+Using Materials Project MACE for MACECalculator with /home/sebin/.cache/mace/20231210mace128L0_energy_epoch249model
+Using float32 for MACECalculator, which is faster but less accurate. Recommended for MD. Use float64 for geometry optimization.
+/home/sebin/.local/lib/python3.10/site-packages/mace/calculators/mace.py:199: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  torch.load(f=model_path, map_location=device)
+WARNING:root:Default dtype float32 does not match model dtype float64, converting models to float32.
+Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured.
+WARNING:huggingface_hub._login:Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured.
+Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured.
+WARNING:huggingface_hub._login:Note: Environment variable`HF_TOKEN` is set and is the current active token independently from the token you've just configured.
+/home/sebin/.local/lib/python3.10/site-packages/fairchem/core/models/uma/escn_md.py:130: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  Jd_list = torch.load(os.path.join(os.path.dirname(__file__), "Jd.pt"))
+WARNING:root:This is a direct-force model. Direct force predictions may lead to discontinuities in the potential energy surface and energy conservation errors.
+WARNING:root:task_name='omol' detected, but charge is not set in atoms.info. Defaulting to charge=0. Ensure charge is an integer representing the total charge on the system and is within the range -100 to 100.
+WARNING:root:task_name='omol' detected, but spin multiplicity is not set in atoms.info. Defaulting to spin=1. Ensure spin is an integer representing the spin multiplicity from 0 to 100.
+  Stopping...

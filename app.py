@@ -10,24 +10,32 @@ from ase.constraints import FixAtoms
 from ase.filters import FrechetCellFilter
 from ase.visualize import view
 import py3Dmol
+from mace.calculators import mace_mp
 from fairchem.core import pretrained_mlip, FAIRChemCalculator
 import pandas as pd
 from orb_models.forcefield import pretrained
 from orb_models.forcefield.calculator import ORBCalculator
+from mattersim.forcefield import MatterSimCalculator
+from sevenn.calculator import SevenNetCalculator
 
 from huggingface_hub import login
 
+# Handle Hugging Face Login
+hf_token = os.environ.get("HF_TOKEN")
 try:
-    hf_token = st.secrets["HF_TOKEN"]["token"]
+    if "HF_TOKEN" in st.secrets:
+        hf_token = st.secrets["HF_TOKEN"].get("token", hf_token)
+except Exception:
+    pass
+
+if hf_token:
     os.environ["HF_TOKEN"] = hf_token
-    login(token=hf_token)
-except Exception as e:
-    print("streamlit hf secret not defined/assigned")
-# try:
-#     hf_token = os.getenv("YOUR SECRET KEY")
-#     login(token = hf_token)
-# except Exception as e:
-#      print("hf secret not defined/assigned")
+    try:
+        login(token=hf_token)
+    except Exception as e:
+        print(f"Error logging in to Hugging Face: {str(e)}")
+else:
+    print("HF_TOKEN not found in secrets or environment")
 
 import os
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
@@ -39,7 +47,7 @@ MAX_ATOMS_CLOUD_UMA = 500
 
 # Set page configuration
 st.set_page_config(
-    page_title="ML-MAD",
+    page_title="Molecular Structure Analysis",
     page_icon="🧪",
     layout="wide"
 )
@@ -71,19 +79,20 @@ st.set_page_config(
 
 # Title and description
 st.markdown('## ML-MAD', unsafe_allow_html=True)
-st.write('#### Run, test and compare >17 state-of-the-art universal machine learning interatomic potentials (MLIPs) for atomistic simulations of molecules and materials')
+st.write('#### State-of-the-art universal machine learning interatomic potentials (MLIPs) for atomistic simulations of molecules and materials')
 st.markdown('Upload molecular structure files or select from predefined examples, then compute energies and forces using foundation models such as those from MACE or FairChem (Meta).', unsafe_allow_html=True)
 
 # Create a directory for sample structures if it doesn't exist
-SAMPLE_DIR = "sample_structures"
+SAMPLE_DIR = "structures"
 os.makedirs(SAMPLE_DIR, exist_ok=True)
 
 # Dictionary of sample structures
 SAMPLE_STRUCTURES = {
-    "CO": "CO.xyz",
+    "Water": "H2O.xyz",
     "Methane": "CH4.xyz",
-    "CO2": "CO2.xyz",
-    
+    "Benzene": "C6H6.xyz",
+    "Ethane": "C2H6.xyz",
+    "Caffeine": "caffeine.xyz"
 }
 
 def get_structure_viz2(atoms_obj, style='stick', show_unit_cell=True, width=400, height=400):
@@ -163,13 +172,13 @@ def get_structure_viz2(atoms_obj, style='stick', show_unit_cell=True, width=400,
             })
     
     view.zoomTo()
-    view.setBackgroundColor('white')
+    view.setBackgroundColor('#F5F5DC')
     
     return view
 
 
 # Custom logger that updates the table
-def streamlit_log(opt):
+def streamlit_log(opt, opt_log, table_placeholder):
     energy = opt.atoms.get_potential_energy()
     forces = opt.atoms.get_forces()
     fmax_step = np.max(np.linalg.norm(forces, axis=1))
@@ -186,6 +195,10 @@ def check_atom_limit(atoms_obj, selected_model):
     if atoms_obj is None:
         return True
     
+    # Only enforce limits on Streamlit Cloud
+    if not is_streamlit_cloud:
+        return True
+    
     num_atoms = len(atoms_obj)
     if ('UMA' in selected_model or 'ESEN MD' in selected_model) and num_atoms > MAX_ATOMS_CLOUD_UMA:
         st.error(f"⚠️ Error: Your structure contains {num_atoms} atoms, which exceeds the {MAX_ATOMS_CLOUD_UMA} atom limit for Streamlit Cloud deployments for large sized FairChem models. For larger systems, please download the repository from GitHub and run it locally on your machine where no atom limit applies.")
@@ -198,10 +211,26 @@ def check_atom_limit(atoms_obj, selected_model):
     return True
 
 
+# Define the available MACE models
+MACE_MODELS = {
+    "MACE MPA Medium": "https://github.com/ACEsuit/mace-mp/releases/download/mace_mpa_0/mace-mpa-0-medium.model",
+    "MACE OMAT Medium": "https://github.com/ACEsuit/mace-mp/releases/download/mace_omat_0/mace-omat-0-medium.model",
+    "MACE MATPES r2SCAN Medium": "https://github.com/ACEsuit/mace-foundations/releases/download/mace_matpes_0/MACE-matpes-r2scan-omat-ft.model",
+    "MACE MATPES PBE Medium": "https://github.com/ACEsuit/mace-foundations/releases/download/mace_matpes_0/MACE-matpes-pbe-omat-ft.model",
+    "MACE MP 0a Small": "https://github.com/ACEsuit/mace-mp/releases/download/mace_mp_0/2023-12-10-mace-128-L0_energy_epoch-249.model",
+    "MACE MP 0a Medium": "https://github.com/ACEsuit/mace-mp/releases/download/mace_mp_0/2023-12-03-mace-128-L1_epoch-199.model",
+    "MACE MP 0a Large": "https://github.com/ACEsuit/mace-mp/releases/download/mace_mp_0/2024-01-07-mace-128-L2_epoch-199.model",
+    "MACE MP 0b Small": "https://github.com/ACEsuit/mace-foundations/releases/download/mace_mp_0b/mace_agnesi_small.model",
+    "MACE MP 0b Medium": "https://github.com/ACEsuit/mace-foundations/releases/download/mace_mp_0b/mace_agnesi_medium.model",
+    "MACE MP 0b2 Small": "https://github.com/ACEsuit/mace-foundations/releases/download/mace_mp_0b2/mace-large-density-agnesi-stress.model",
+    "MACE MP 0b2 Medium": "https://github.com/ACEsuit/mace-foundations/releases/download/mace_mp_0b2/mace-medium-density-agnesi-stress.model",
+    "MACE MP 0b2 Large": "https://github.com/ACEsuit/mace-foundations/releases/download/mace_mp_0b2/mace-large-density-agnesi-stress.model",
+    "MACE MP 0b3 Medium": "https://github.com/ACEsuit/mace-foundations/releases/download/mace_mp_0b3/mace-mp-0b3-medium.model",
+}
 
 # Define the available FairChem models
 FAIRCHEM_MODELS = {
-    "UMA Small": "uma-sm",
+    "UMA Small": "uma-s-1p1",
     "ESEN MD Direct All OMOL": "esen-md-direct-all-omol",
     "ESEN SM Conserving All OMOL": "esen-sm-conserving-all-omol",
     "ESEN SM Direct All OMOL": "esen-sm-direct-all-omol"
@@ -212,6 +241,24 @@ ORB_MODELS = {
     "V3 OMAT Conserving": "orb_v3_conservative_inf_omat",
 }
 
+# Define the available MatterSim models
+MATTERSIM_MODELS = {
+    "MatterSim v1.0.0-1M": "mattersim-v1.0.0-1M.pth",
+    "MatterSim v1.0.0-5M": "mattersim-v1.0.0-5M.pth",
+}
+
+# Define the available SevenNet models
+SEVENNET_MODELS = {
+    "SevenNet-0": "SevenNet-0",
+    "SevenNet-MF-OMPA": "7net-mf-ompa",
+    "SevenNet-OMAT": "7net-omat",
+    "SevenNet-l3i5": "7net-l3i5"
+}
+
+@st.cache_resource
+def get_mace_model(model_path, device, selected_default_dtype):
+    # Create a model of the specified type.
+    return mace_mp(model=model_path, device=device, default_dtype=selected_default_dtype)
 
 @st.cache_resource
 def get_fairchem_model(selected_model, model_path, device, selected_task_type):
@@ -221,6 +268,14 @@ def get_fairchem_model(selected_model, model_path, device, selected_task_type):
     else:
         calc = FAIRChemCalculator(predictor)
     return calc
+
+@st.cache_resource
+def get_mattersim_model(model_path, device):
+    return MatterSimCalculator(model_path=model_path, device=device)
+
+@st.cache_resource
+def get_sevennet_model(model_name, device):
+    return SevenNetCalculator(model=model_name, device=device)
 
 # Sidebar for file input and parameters
 st.sidebar.markdown("## Input Options")
@@ -295,10 +350,15 @@ elif input_method == "Paste Content":
 
 # Model selection
 st.sidebar.markdown("## Model Selection")
-model_type = st.sidebar.radio("Select Model Type:", ["FairChem", "ORB"])
+model_type = st.sidebar.radio("Select Model Type:", ["MACE", "FairChem", "ORB", "MatterSim", "SevenNet"])
 
 selected_task_type = None
-
+if model_type == "MACE":
+    selected_model = st.sidebar.selectbox("Select MACE Model:", list(MACE_MODELS.keys()))
+    model_path = MACE_MODELS[selected_model]
+    if selected_model == "MACE OMAT Medium":
+        st.sidebar.warning("Using model under Academic Software License (ASL) license, see [https://github.com/gabor1/ASL](https://github.com/gabor1/ASL). To use this model you accept the terms of the license.")
+    selected_default_dtype = st.sidebar.selectbox("Select Precision (default_dtype):", ['float32', 'float64'])
 if model_type == "FairChem":
     selected_model = st.sidebar.selectbox("Select FairChem Model:", list(FAIRCHEM_MODELS.keys()))
     model_path = FAIRCHEM_MODELS[selected_model]
@@ -311,6 +371,20 @@ if model_type == "ORB":
     # if "omat" in selected_model:
     #     st.sidebar.warning("Using model under Academic Software License (ASL) license, see [https://github.com/gabor1/ASL](https://github.com/gabor1/ASL). To use this model you accept the terms of the license.")
     selected_default_dtype = st.sidebar.selectbox("Select Precision (default_dtype):", ['float32-high', 'float32-highest', 'float64'])
+if model_type == "MatterSim":
+    selected_model = st.sidebar.selectbox("Select MatterSim Model:", list(MATTERSIM_MODELS.keys()))
+    # For now, we'll assume the model needs to be downloaded or is available at a path.
+    # Since we can't easily download 1M/5M models on the fly without a URL, we'll try to load it.
+    # Users might need to download it manually or we'd need a direct link.
+    # Assuming MatterSimCalculator handles model loading/downloading if provided a name?
+    # Based on the example, it takes a path.
+    # Let's assume for this integration we pass the name and let the user know they might need the file.
+    model_path = MATTERSIM_MODELS[selected_model]
+    st.info("Note: MatterSim models (1M/5M) are large. Ensure you have the model file or that the calculator can download it.")
+if model_type == "SevenNet":
+    selected_model = st.sidebar.selectbox("Select SevenNet Model:", list(SEVENNET_MODELS.keys()))
+    model_name = SEVENNET_MODELS[selected_model]
+
 # Check atom count limit
 if atoms is not None:
     check_atom_limit(atoms, selected_model)
@@ -362,7 +436,7 @@ if atoms is not None:
             view.addModel(xyz_str, "xyz")
             view.setStyle({'stick': {}})
             view.zoomTo()
-            view.setBackgroundColor('white')
+            view.setBackgroundColor('#F5F5DC')
             
             return view
 
@@ -411,7 +485,10 @@ if atoms is not None:
                     calc_atoms = atoms.copy()
                     
                     # Set up calculator based on selected model
-                    if model_type == "FairChem":  # FairChem
+                    if model_type == "MACE":
+                        st.write("Setting up MACE calculator...")
+                        calc = get_mace_model(model_path, device, selected_default_dtype)
+                    elif model_type == "FairChem":  # FairChem
                         st.write("Setting up FairChem calculator...")
                         # Seems like the FairChem models use float32 and when switching from MACE 64 model to FairChem float32 model we get an error
                         # probably due to both sharing the underlying torch implementation
@@ -422,6 +499,25 @@ if atoms is not None:
                         st.write("Setting up ORB calculator...")
                         orbff = pretrained.orb_v3_conservative_inf_omat(device=device, precision=selected_default_dtype)
                         calc = ORBCalculator(orbff, device=device)
+                    elif model_type == "MatterSim":
+                        st.write("Setting up MatterSim calculator...")
+                        # Since we don't have the files locally, we might need a way to get them.
+                        # The example showed loading from a path.
+                        # If the library supports auto-downloading, great. If not, this might fail without the file.
+                        # For now, we try to initialize it.
+                        try:
+                             calc = get_mattersim_model(model_path, device)
+                        except Exception as e:
+                             st.error(f"Failed to load MatterSim model: {e}")
+                             st.stop()
+                    elif model_type == "SevenNet":
+                        st.write("Setting up SevenNet calculator...")
+                        try:
+                            calc = get_sevennet_model(model_name, device)
+                        except Exception as e:
+                            st.error(f"Failed to load SevenNet model: {e}")
+                            st.stop()
+
                     # Attach calculator to atoms
                     calc_atoms.calc = calc
                     
@@ -457,7 +553,7 @@ if atoms is not None:
                         # Container for log data
                         opt_log = []
                         # Attach the Streamlit logger to the optimizer
-                        opt.attach(lambda: streamlit_log(opt), interval=1)
+                        opt.attach(lambda: streamlit_log(opt, opt_log, table_placeholder), interval=1)
                         # Run optimization
                         st.write("Running geometry optimization...")
                         opt.run(fmax=fmax, steps=max_steps)
@@ -489,7 +585,7 @@ if atoms is not None:
                         # Container for log data
                         opt_log = []
                         # Attach the Streamlit logger to the optimizer
-                        opt.attach(lambda: streamlit_log(opt), interval=1)
+                        opt.attach(lambda: streamlit_log(opt, opt_log, table_placeholder), interval=1)
                         # Run optimization
                         st.write("Running cell + geometry optimization...")
                         opt.run(fmax=fmax, steps=max_steps)
@@ -567,5 +663,5 @@ with st.expander('## About This App'):
     3. Select a calculation task
     4. Run the calculation and analyze the results
     """)
-st.markdown("ML MAD app | Created by [Sebin Devasia](https://sebindevasiamx.wixsite.com/sebin), Assistant Professor, PSGiTech & PSGIAS ")
-st.markdown("Made with ❤️")
+st.markdown("ML-MAD App | Created with Streamlit, ASE, MACE, FairChem and ❤️")
+st.markdown("Made by [Sebin Devasia](https://sebindevasiamx.wixsite.com/sebin)")
