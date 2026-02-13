@@ -14,10 +14,29 @@ import pandas as pd
 
 from mace.calculators import mace_mp
 from fairchem.core import pretrained_mlip, FAIRChemCalculator
-from orb_models.forcefield import pretrained
-from orb_models.forcefield.calculator import ORBCalculator
-from mattersim.forcefield import MatterSimCalculator
-from sevenn.calculator import SevenNetCalculator
+
+try:
+    from orb_models.forcefield import pretrained
+    from orb_models.forcefield.calculator import ORBCalculator
+    ORB_IMPORT_ERROR = None
+except Exception as e:
+    pretrained = None
+    ORBCalculator = None
+    ORB_IMPORT_ERROR = str(e)
+
+try:
+    from mattersim.forcefield import MatterSimCalculator
+    MATTERSIM_IMPORT_ERROR = None
+except Exception as e:
+    MatterSimCalculator = None
+    MATTERSIM_IMPORT_ERROR = str(e)
+
+try:
+    from sevenn.calculator import SevenNetCalculator
+    SEVENNET_IMPORT_ERROR = None
+except Exception as e:
+    SevenNetCalculator = None
+    SEVENNET_IMPORT_ERROR = str(e)
 
 from huggingface_hub import login
 
@@ -38,7 +57,6 @@ if hf_token:
 else:
     print("HF_TOKEN not found in secrets or environment")
 
-import os
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 
 # Check if running on Streamlit Cloud vs locally
@@ -352,7 +370,22 @@ elif input_method == "Paste Content":
 
 # Model selection
 st.sidebar.markdown("## Model Selection")
-model_type = st.sidebar.radio("Select Model Type:", ["MACE", "FairChem", "ORB", "MatterSim", "SevenNet"])
+available_model_types = ["MACE", "FairChem"]
+if ORBCalculator is not None:
+    available_model_types.append("ORB")
+if MatterSimCalculator is not None:
+    available_model_types.append("MatterSim")
+if SevenNetCalculator is not None:
+    available_model_types.append("SevenNet")
+
+model_type = st.sidebar.radio("Select Model Type:", available_model_types)
+
+if ORBCalculator is None:
+    st.sidebar.caption(f"ORB unavailable in this deployment: {ORB_IMPORT_ERROR}")
+if MatterSimCalculator is None:
+    st.sidebar.caption(f"MatterSim unavailable in this deployment: {MATTERSIM_IMPORT_ERROR}")
+if SevenNetCalculator is None:
+    st.sidebar.caption(f"SevenNet unavailable in this deployment: {SEVENNET_IMPORT_ERROR}")
 
 selected_task_type = None
 if model_type == "MACE":
@@ -499,9 +532,8 @@ if atoms is not None:
                         calc = get_fairchem_model(selected_model, model_path, device, selected_task_type)
                     elif model_type == "ORB":
                         st.write("Setting up ORB calculator...")
-                        # orbff = pretrained.orb_v3_conservative_inf_omat(device=device, precision=selected_default_dtype)
-                        # calc = ORBCalculator(orbff, device=device)
-                        st.warning("ORB models are temporarily disabled on Streamlit Cloud due to dependency issues.")
+                        orbff = pretrained.orb_v3_conservative_inf_omat(device=device, precision=selected_default_dtype)
+                        calc = ORBCalculator(orbff, device=device)
                     elif model_type == "MatterSim":
                         st.write("Setting up MatterSim calculator...")
                         # Since we don't have the files locally, we might need a way to get them.
