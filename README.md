@@ -48,12 +48,13 @@ To run ML-MAD locally, follow these steps:
 3. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
+   pip install -r requirements-ml.txt
    ```
    For optional model families (ORB, MatterSim, SevenNet), install extra dependencies locally:
    ```bash
    pip install -r requirements-optional.txt
    ```
-   *Note: Optional packages may require specific hardware (GPU) or additional setup for optimal performance.*
+   *Note: ML/optional packages may require specific hardware (GPU) or additional setup for optimal performance.*
 
 4. **Run the Streamlit app:**
    ```bash
@@ -64,13 +65,17 @@ To run ML-MAD locally, follow these steps:
 
 When deploying to Streamlit Cloud, ensure you handle the following:
 
-1. **Hugging Face Token:** Some models require access to Hugging Face. Add your `HF_TOKEN` to the Streamlit Secrets:
+1. **Choose dependency scope:**
+   - Streamlit Cloud installs only `requirements.txt` by default.
+   - Keep `requirements.txt` minimal if you only need reliable UI/bootstrap deployment.
+   - To enable model calculations in Cloud, add `-r requirements-ml.txt` (and optionally `-r requirements-optional.txt`) into `requirements.txt`, then redeploy.
+2. **Hugging Face Token:** Some models require access to Hugging Face. Add your `HF_TOKEN` to the Streamlit Secrets:
    ```toml
    # .streamlit/secrets.toml
    [HF_TOKEN]
    token = "your_huggingface_token_here"
    ```
-2. **Resource Limits:** Streamlit Cloud has memory and CPU/GPU limitations. For large systems or intensive optimizations, running locally is recommended. The app includes a built-in atom limit (500 atoms) when running in a cloud environment to ensure stability.
+3. **Resource Limits:** Streamlit Cloud has memory and CPU/GPU limitations. For large systems or intensive optimizations, running locally is recommended. The app includes a built-in atom limit (500 atoms) when running in a cloud environment to ensure stability.
 
 ## 🛠 Tech Stack
 

@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import tempfile
-import torch
 import numpy as np
 from ase import Atoms
 from ase.io import read, write
@@ -12,8 +11,27 @@ from ase.visualize import view
 import py3Dmol
 import pandas as pd
 
-from mace.calculators import mace_mp
-from fairchem.core import pretrained_mlip, FAIRChemCalculator
+try:
+    import torch
+    TORCH_IMPORT_ERROR = None
+except Exception as e:
+    torch = None
+    TORCH_IMPORT_ERROR = str(e)
+
+try:
+    from mace.calculators import mace_mp
+    MACE_IMPORT_ERROR = None
+except Exception as e:
+    mace_mp = None
+    MACE_IMPORT_ERROR = str(e)
+
+try:
+    from fairchem.core import pretrained_mlip, FAIRChemCalculator
+    FAIRCHEM_IMPORT_ERROR = None
+except Exception as e:
+    pretrained_mlip = None
+    FAIRChemCalculator = None
+    FAIRCHEM_IMPORT_ERROR = str(e)
 
 try:
     from orb_models.forcefield import pretrained
@@ -370,7 +388,11 @@ elif input_method == "Paste Content":
 
 # Model selection
 st.sidebar.markdown("## Model Selection")
-available_model_types = ["MACE", "FairChem"]
+available_model_types = []
+if mace_mp is not None:
+    available_model_types.append("MACE")
+if FAIRChemCalculator is not None:
+    available_model_types.append("FairChem")
 if ORBCalculator is not None:
     available_model_types.append("ORB")
 if MatterSimCalculator is not None:
@@ -378,8 +400,18 @@ if MatterSimCalculator is not None:
 if SevenNetCalculator is not None:
     available_model_types.append("SevenNet")
 
-model_type = st.sidebar.radio("Select Model Type:", available_model_types)
+model_type = None
+if not available_model_types:
+    st.sidebar.warning("No model backends are currently installed. UI is available, but calculations are disabled.")
+else:
+    model_type = st.sidebar.radio("Select Model Type:", available_model_types)
 
+if torch is None:
+    st.sidebar.caption(f"PyTorch unavailable: {TORCH_IMPORT_ERROR}")
+if mace_mp is None:
+    st.sidebar.caption(f"MACE unavailable in this deployment: {MACE_IMPORT_ERROR}")
+if FAIRChemCalculator is None:
+    st.sidebar.caption(f"FairChem unavailable in this deployment: {FAIRCHEM_IMPORT_ERROR}")
 if ORBCalculator is None:
     st.sidebar.caption(f"ORB unavailable in this deployment: {ORB_IMPORT_ERROR}")
 if MatterSimCalculator is None:
@@ -388,6 +420,7 @@ if SevenNetCalculator is None:
     st.sidebar.caption(f"SevenNet unavailable in this deployment: {SEVENNET_IMPORT_ERROR}")
 
 selected_task_type = None
+selected_model = "N/A"
 if model_type == "MACE":
     selected_model = st.sidebar.selectbox("Select MACE Model:", list(MACE_MODELS.keys()))
     model_path = MACE_MODELS[selected_model]
@@ -421,17 +454,18 @@ if model_type == "SevenNet":
     model_name = SEVENNET_MODELS[selected_model]
 
 # Check atom count limit
-if atoms is not None:
+if atoms is not None and model_type is not None:
     check_atom_limit(atoms, selected_model)
     #st.sidebar.success(f"Successfully parsed structure with {len(atoms)} atoms!")
 # Device selection
+cuda_available = bool(torch is not None and torch.cuda.is_available())
 device = st.sidebar.radio("Computation Device:", ["CPU", "CUDA (GPU)"], 
-                         index=0 if not torch.cuda.is_available() else 1)
-device = "cuda" if device == "CUDA (GPU)" and torch.cuda.is_available() else "cpu"
+                         index=0 if not cuda_available else 1)
+device = "cuda" if device == "CUDA (GPU)" and cuda_available else "cpu"
 
-if device == "cpu" and torch.cuda.is_available():
+if device == "cpu" and cuda_available:
     st.sidebar.info("GPU is available but CPU was selected. Calculations will be slower.")
-elif device == "cpu" and not torch.cuda.is_available():
+elif device == "cpu" and not cuda_available:
     st.sidebar.info("No GPU detected. Using CPU for calculations.")
 
 # Task selection
@@ -440,10 +474,11 @@ task = st.sidebar.selectbox("Select Calculation Task:",
                            ["Energy Calculation", 
                             "Energy + Forces Calculation", 
                             "Geometry Optimization", 
-                            "Cell + Geometry Optimization"])
+                            "Cell + Geometry Optimization"],
+                           disabled=(model_type is None))
 
 # Optimization parameters
-if "Optimization" in task:
+if model_type is not None and "Optimization" in task:
     st.sidebar.markdown("### Optimization Parameters")
     max_steps = st.sidebar.slider("Maximum Steps:", min_value=10, max_value=50, value=25, step=1)
     fmax = st.sidebar.slider("Convergence Threshold (eV/Å):", 
@@ -511,8 +546,11 @@ if atoms is not None:
             st.write(f"**Optimizer:** {optimizer}")
         
         # Run calculation button
-        run_calculation = st.button("Run Calculation", type="primary")
-        
+        run_calculation = st.button("Run Calculation", type="primary", disabled=(model_type is None))
+
+        if model_type is None:
+            st.info("To enable calculations, install `requirements-ml.txt`. On Streamlit Cloud, add `-r requirements-ml.txt` (and optionally `-r requirements-optional.txt`) into `requirements.txt` before redeploying.")
+
         if run_calculation:
             try:
                 with st.spinner("Running calculation..."):

@@ -1,0 +1,5 @@
+# Core ML model backends (install when you want calculations enabled)
+torch
+fairchem-core==2.1.0
+mace-torch
+pybind11

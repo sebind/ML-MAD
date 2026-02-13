@@ -1,18 +1,11 @@
-# Core dependencies for Streamlit Cloud hosting
-# Keep this file minimal and stable so app startup remains reliable.
-
+# Minimal dependencies for reliable Streamlit deployment/startup
 streamlit>=1.36
 pandas>=2.0
 numpy>=1.24
 ase>=3.22
 py3dmol>=2.0
 huggingface_hub>=0.23
-hf_xet>=1.0
 
-# ML stack used by default app paths (MACE + FairChem)
-torch
-fairchem-core==2.1.0
-mace-torch
-
-# Build helper used by some compiled deps
-pybind11
+# To enable ML backends on Streamlit Cloud, add these lines below and redeploy:
+# -r requirements-ml.txt
+# -r requirements-optional.txt
