@@ -400,11 +400,11 @@ if MatterSimCalculator is not None:
 if SevenNetCalculator is not None:
     available_model_types.append("SevenNet")
 
+model_type = None
 if not available_model_types:
-    st.error("No model backends are installed. Install optional ML dependencies and redeploy.")
-    st.stop()
-
-model_type = st.sidebar.radio("Select Model Type:", available_model_types)
+    st.sidebar.warning("No model backends are currently installed. UI is available, but calculations are disabled.")
+else:
+    model_type = st.sidebar.radio("Select Model Type:", available_model_types)
 
 if torch is None:
     st.sidebar.caption(f"PyTorch unavailable: {TORCH_IMPORT_ERROR}")
@@ -420,6 +420,7 @@ if SevenNetCalculator is None:
     st.sidebar.caption(f"SevenNet unavailable in this deployment: {SEVENNET_IMPORT_ERROR}")
 
 selected_task_type = None
+selected_model = "N/A"
 if model_type == "MACE":
     selected_model = st.sidebar.selectbox("Select MACE Model:", list(MACE_MODELS.keys()))
     model_path = MACE_MODELS[selected_model]
@@ -453,7 +454,7 @@ if model_type == "SevenNet":
     model_name = SEVENNET_MODELS[selected_model]
 
 # Check atom count limit
-if atoms is not None:
+if atoms is not None and model_type is not None:
     check_atom_limit(atoms, selected_model)
     #st.sidebar.success(f"Successfully parsed structure with {len(atoms)} atoms!")
 # Device selection
@@ -473,10 +474,11 @@ task = st.sidebar.selectbox("Select Calculation Task:",
                            ["Energy Calculation", 
                             "Energy + Forces Calculation", 
                             "Geometry Optimization", 
-                            "Cell + Geometry Optimization"])
+                            "Cell + Geometry Optimization"],
+                           disabled=(model_type is None))
 
 # Optimization parameters
-if "Optimization" in task:
+if model_type is not None and "Optimization" in task:
     st.sidebar.markdown("### Optimization Parameters")
     max_steps = st.sidebar.slider("Maximum Steps:", min_value=10, max_value=50, value=25, step=1)
     fmax = st.sidebar.slider("Convergence Threshold (eV/Å):", 
@@ -544,8 +546,11 @@ if atoms is not None:
             st.write(f"**Optimizer:** {optimizer}")
         
         # Run calculation button
-        run_calculation = st.button("Run Calculation", type="primary")
-        
+        run_calculation = st.button("Run Calculation", type="primary", disabled=(model_type is None))
+
+        if model_type is None:
+            st.info("Install `requirements-ml.txt` to enable MACE/FairChem calculations, and `requirements-optional.txt` for extra model families.")
+
         if run_calculation:
             try:
                 with st.spinner("Running calculation..."):
