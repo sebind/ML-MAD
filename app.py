@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import tempfile
-import torch
 import numpy as np
 from ase import Atoms
 from ase.io import read, write
@@ -12,12 +11,50 @@ from ase.visualize import view
 import py3Dmol
 import pandas as pd
 
-from mace.calculators import mace_mp
-from fairchem.core import pretrained_mlip, FAIRChemCalculator
-from orb_models.forcefield import pretrained
-from orb_models.forcefield.calculator import ORBCalculator
-from mattersim.forcefield import MatterSimCalculator
-from sevenn.calculator import SevenNetCalculator
+try:
+    import torch
+    TORCH_IMPORT_ERROR = None
+except Exception as e:
+    torch = None
+    TORCH_IMPORT_ERROR = str(e)
+
+try:
+    from mace.calculators import mace_mp
+    MACE_IMPORT_ERROR = None
+except Exception as e:
+    mace_mp = None
+    MACE_IMPORT_ERROR = str(e)
+
+try:
+    from fairchem.core import pretrained_mlip, FAIRChemCalculator
+    FAIRCHEM_IMPORT_ERROR = None
+except Exception as e:
+    pretrained_mlip = None
+    FAIRChemCalculator = None
+    FAIRCHEM_IMPORT_ERROR = str(e)
+
+try:
+    from orb_models.forcefield import pretrained
+    from orb_models.forcefield.calculator import ORBCalculator
+    ORB_IMPORT_ERROR = None
+except Exception as e:
+    pretrained = None
+    ORBCalculator = None
+    ORB_IMPORT_ERROR = str(e)
+
+try:
+    from mattersim.forcefield import MatterSimCalculator
+    MATTERSIM_IMPORT_ERROR = None
+except Exception as e:
+    MatterSimCalculator = None
+    MATTERSIM_IMPORT_ERROR = str(e)
+
+try:
+    from sevenn.calculator import SevenNetCalculator
+    SEVENNET_IMPORT_ERROR = None
+except Exception as e:
+    SevenNetCalculator = None
+    SEVENNET_IMPORT_ERROR = str(e)
 
 from huggingface_hub import login
 
@@ -38,7 +75,6 @@ if hf_token:
 else:
     print("HF_TOKEN not found in secrets or environment")
 
-import os
 os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 
 # Check if running on Streamlit Cloud vs locally
@@ -352,7 +388,36 @@ elif input_method == "Paste Content":
 
 # Model selection
 st.sidebar.markdown("## Model Selection")
-model_type = st.sidebar.radio("Select Model Type:", ["MACE", "FairChem", "ORB", "MatterSim", "SevenNet"])
+available_model_types = []
+if mace_mp is not None:
+    available_model_types.append("MACE")
+if FAIRChemCalculator is not None:
+    available_model_types.append("FairChem")
+if ORBCalculator is not None:
+    available_model_types.append("ORB")
+if MatterSimCalculator is not None:
+    available_model_types.append("MatterSim")
+if SevenNetCalculator is not None:
+    available_model_types.append("SevenNet")
+
+if not available_model_types:
+    st.error("No model backends are installed. Install optional ML dependencies and redeploy.")
+    st.stop()
+
+model_type = st.sidebar.radio("Select Model Type:", available_model_types)
+
+if torch is None:
+    st.sidebar.caption(f"PyTorch unavailable: {TORCH_IMPORT_ERROR}")
+if mace_mp is None:
+    st.sidebar.caption(f"MACE unavailable in this deployment: {MACE_IMPORT_ERROR}")
+if FAIRChemCalculator is None:
+    st.sidebar.caption(f"FairChem unavailable in this deployment: {FAIRCHEM_IMPORT_ERROR}")
+if ORBCalculator is None:
+    st.sidebar.caption(f"ORB unavailable in this deployment: {ORB_IMPORT_ERROR}")
+if MatterSimCalculator is None:
+    st.sidebar.caption(f"MatterSim unavailable in this deployment: {MATTERSIM_IMPORT_ERROR}")
+if SevenNetCalculator is None:
+    st.sidebar.caption(f"SevenNet unavailable in this deployment: {SEVENNET_IMPORT_ERROR}")
 
 selected_task_type = None
 if model_type == "MACE":
@@ -392,13 +457,14 @@ if atoms is not None:
     check_atom_limit(atoms, selected_model)
     #st.sidebar.success(f"Successfully parsed structure with {len(atoms)} atoms!")
 # Device selection
+cuda_available = bool(torch is not None and torch.cuda.is_available())
 device = st.sidebar.radio("Computation Device:", ["CPU", "CUDA (GPU)"], 
-                         index=0 if not torch.cuda.is_available() else 1)
-device = "cuda" if device == "CUDA (GPU)" and torch.cuda.is_available() else "cpu"
+                         index=0 if not cuda_available else 1)
+device = "cuda" if device == "CUDA (GPU)" and cuda_available else "cpu"
 
-if device == "cpu" and torch.cuda.is_available():
+if device == "cpu" and cuda_available:
     st.sidebar.info("GPU is available but CPU was selected. Calculations will be slower.")
-elif device == "cpu" and not torch.cuda.is_available():
+elif device == "cpu" and not cuda_available:
     st.sidebar.info("No GPU detected. Using CPU for calculations.")
 
 # Task selection
@@ -499,9 +565,8 @@ if atoms is not None:
                         calc = get_fairchem_model(selected_model, model_path, device, selected_task_type)
                     elif model_type == "ORB":
                         st.write("Setting up ORB calculator...")
-                        # orbff = pretrained.orb_v3_conservative_inf_omat(device=device, precision=selected_default_dtype)
-                        # calc = ORBCalculator(orbff, device=device)
-                        st.warning("ORB models are temporarily disabled on Streamlit Cloud due to dependency issues.")
+                        orbff = pretrained.orb_v3_conservative_inf_omat(device=device, precision=selected_default_dtype)
+                        calc = ORBCalculator(orbff, device=device)
                     elif model_type == "MatterSim":
                         st.write("Setting up MatterSim calculator...")
                         # Since we don't have the files locally, we might need a way to get them.

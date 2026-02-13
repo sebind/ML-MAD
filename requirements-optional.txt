@@ -1,0 +1,13 @@
+# Extra/experimental model dependencies.
+# Install after requirements-ml.txt if you need ORB, MatterSim, or SevenNet.
+
+# Dependency for orb-models not on PyPI
+git+https://github.com/u1234x1234/pynanoflann.git
+orb-models
+
+# Additional optional model backends
+mattersim
+sevenn
+
+# Legacy extra from previous setup
+git+https://github.com/manassharma07/mace_e3nn_new.git@main#egg=mace_e3nn_new
