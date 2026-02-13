@@ -5,3 +5,7 @@ numpy>=1.24
 ase>=3.22
 py3dmol>=2.0
 huggingface_hub>=0.23
+
+# To enable ML backends on Streamlit Cloud, add these lines below and redeploy:
+# -r requirements-ml.txt
+# -r requirements-optional.txt

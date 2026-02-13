@@ -66,8 +66,9 @@ To run ML-MAD locally, follow these steps:
 When deploying to Streamlit Cloud, ensure you handle the following:
 
 1. **Choose dependency scope:**
-   - Keep `requirements.txt` minimal if you only need the UI/bootstrap to be highly reliable.
-   - Add model requirements from `requirements-ml.txt` (and optionally `requirements-optional.txt`) when enabling additional model families.
+   - Streamlit Cloud installs only `requirements.txt` by default.
+   - Keep `requirements.txt` minimal if you only need reliable UI/bootstrap deployment.
+   - To enable model calculations in Cloud, add `-r requirements-ml.txt` (and optionally `-r requirements-optional.txt`) into `requirements.txt`, then redeploy.
 2. **Hugging Face Token:** Some models require access to Hugging Face. Add your `HF_TOKEN` to the Streamlit Secrets:
    ```toml
    # .streamlit/secrets.toml

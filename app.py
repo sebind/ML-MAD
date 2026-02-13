@@ -549,7 +549,7 @@ if atoms is not None:
         run_calculation = st.button("Run Calculation", type="primary", disabled=(model_type is None))
 
         if model_type is None:
-            st.info("Install `requirements-ml.txt` to enable MACE/FairChem calculations, and `requirements-optional.txt` for extra model families.")
+            st.info("To enable calculations, install `requirements-ml.txt`. On Streamlit Cloud, add `-r requirements-ml.txt` (and optionally `-r requirements-optional.txt`) into `requirements.txt` before redeploying.")
 
         if run_calculation:
             try:
