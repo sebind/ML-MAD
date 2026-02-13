@@ -48,6 +48,7 @@ To run ML-MAD locally, follow these steps:
 3. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
+   pip install -r requirements-ml.txt
    ```
    For optional model families (ORB, MatterSim, SevenNet), install extra dependencies locally:
    ```bash
