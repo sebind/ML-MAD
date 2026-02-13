@@ -1,4 +1,4 @@
-# Minimal dependencies for reliable Streamlit deployment/startup
+# Base dependencies for app runtime
 streamlit>=1.36
 pandas>=2.0
 numpy>=1.24
@@ -6,6 +6,8 @@ ase>=3.22
 py3dmol>=2.0
 huggingface_hub>=0.23
 
-# To enable ML backends on Streamlit Cloud, add these lines below and redeploy:
-# -r requirements-ml.txt
+# Core ML dependencies required for calculations (MACE/FairChem)
+-r requirements-ml.txt
+
+# Optional extra model families can be enabled by uncommenting:
 # -r requirements-optional.txt

@@ -67,8 +67,8 @@ When deploying to Streamlit Cloud, ensure you handle the following:
 
 1. **Choose dependency scope:**
    - Streamlit Cloud installs only `requirements.txt` by default.
-   - Keep `requirements.txt` minimal if you only need reliable UI/bootstrap deployment.
-   - To enable model calculations in Cloud, add `-r requirements-ml.txt` (and optionally `-r requirements-optional.txt`) into `requirements.txt`, then redeploy.
+   - `requirements.txt` already includes `requirements-ml.txt`, so core MACE/FairChem calculations are enabled by default.
+   - To enable additional model families (ORB/MatterSim/SevenNet), add `-r requirements-optional.txt` into `requirements.txt`, then redeploy.
 2. **Hugging Face Token:** Some models require access to Hugging Face. Add your `HF_TOKEN` to the Streamlit Secrets:
    ```toml
    # .streamlit/secrets.toml

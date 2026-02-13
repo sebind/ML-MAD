@@ -549,7 +549,7 @@ if atoms is not None:
         run_calculation = st.button("Run Calculation", type="primary", disabled=(model_type is None))
 
         if model_type is None:
-            st.info("To enable calculations, install `requirements-ml.txt`. On Streamlit Cloud, add `-r requirements-ml.txt` (and optionally `-r requirements-optional.txt`) into `requirements.txt` before redeploying.")
+            st.info("Core calculation backends are enabled via `requirements.txt` -> `requirements-ml.txt`. For additional model families, add `-r requirements-optional.txt` into `requirements.txt` and redeploy.")
 
         if run_calculation:
             try:
