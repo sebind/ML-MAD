@@ -49,7 +49,11 @@ To run ML-MAD locally, follow these steps:
    ```bash
    pip install -r requirements.txt
    ```
-   *Note: Some packages like `orb-models` or `mattersim` might require specific hardware (GPU) or additional setup for optimal performance.*
+   For optional model families (ORB, MatterSim, SevenNet), install extra dependencies locally:
+   ```bash
+   pip install -r requirements-optional.txt
+   ```
+   *Note: Optional packages may require specific hardware (GPU) or additional setup for optimal performance.*
 
 4. **Run the Streamlit app:**
    ```bash
