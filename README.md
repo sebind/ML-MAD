@@ -25,9 +25,6 @@ ML-MAD integrates several state-of-the-art universal MLIPs:
 
 - **MACE:** Multiple versions including MPA, OMAT, MATPES (r2SCAN/PBE), and MP (Small, Medium, Large).
 - **FairChem (Meta):** UMA Small and ESEN (MD/SM) models.
-- **ORB:** ORB V3 Conservative OMAT.
-- **MatterSim:** Version 1.0.0 (1M and 5M models).
-- **SevenNet:** SevenNet-0, SevenNet-MF-OMPA, SevenNet-OMAT, and SevenNet-l3i5.
 
 ## 💻 Local Installation
 
@@ -50,11 +47,7 @@ To run ML-MAD locally, follow these steps:
    pip install -r requirements.txt
    pip install -r requirements-ml.txt
    ```
-   For optional model families (ORB, MatterSim, SevenNet), install extra dependencies locally:
-   ```bash
-   pip install -r requirements-optional.txt
-   ```
-   *Note: ML/optional packages may require specific hardware (GPU) or additional setup for optimal performance.*
+   *Note: ML packages may require specific hardware (GPU) or additional setup for optimal performance.*
 
 4. **Run the Streamlit app:**
    ```bash
@@ -68,7 +61,6 @@ When deploying to Streamlit Cloud, ensure you handle the following:
 1. **Choose dependency scope:**
    - Streamlit Cloud installs only `requirements.txt` by default.
    - `requirements.txt` already includes `requirements-ml.txt`, so core MACE/FairChem calculations are enabled by default.
-   - To enable additional model families (ORB/MatterSim/SevenNet), add `-r requirements-optional.txt` into `requirements.txt`, then redeploy.
 2. **Hugging Face Token:** Some models require access to Hugging Face. Add your `HF_TOKEN` to the Streamlit Secrets:
    ```toml
    # .streamlit/secrets.toml
@@ -82,7 +74,7 @@ When deploying to Streamlit Cloud, ensure you handle the following:
 - **Frontend:** [Streamlit](https://streamlit.io/)
 - **Atomic Simulations:** [ASE (Atomic Simulation Environment)](https://wiki.fysik.dtu.dk/ase/)
 - **Visualization:** [py3Dmol](https://3dmol.csb.pitt.edu/)
-- **Deep Learning:** PyTorch, MACE, FairChem, SevenNet, ORB-models, MatterSim.
+- **Deep Learning:** PyTorch, MACE, FairChem.
 
 ## 📄 License
 
@@ -92,4 +84,4 @@ The code in this repository is provided for research and educational purposes. P
 
 Made by [Sebin Devasia](https://sebindevasiamx.wixsite.com/sebin).
 
-Special thanks to the developers of MACE, FairChem, SevenNet, ORB, and MatterSim for providing these incredible foundational models to the scientific community.
+Special thanks to the developers of MACE and FairChem for providing these incredible foundational models to the scientific community.

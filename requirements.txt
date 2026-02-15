@@ -8,6 +8,3 @@ huggingface_hub>=0.23
 
 # Core ML dependencies required for calculations (MACE/FairChem)
 -r requirements-ml.txt
-
-# Optional extra model families can be enabled by uncommenting:
-# -r requirements-optional.txt
