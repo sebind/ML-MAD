@@ -5,9 +5,7 @@ import numpy as np
 from ase import Atoms
 from ase.io import read, write
 from ase.optimize import BFGS, LBFGS, FIRE
-from ase.constraints import FixAtoms
 from ase.filters import FrechetCellFilter
-from ase.visualize import view
 import py3Dmol
 import pandas as pd
 
@@ -32,29 +30,6 @@ except Exception as e:
     pretrained_mlip = None
     FAIRChemCalculator = None
     FAIRCHEM_IMPORT_ERROR = str(e)
-
-try:
-    from orb_models.forcefield import pretrained
-    from orb_models.forcefield.calculator import ORBCalculator
-    ORB_IMPORT_ERROR = None
-except Exception as e:
-    pretrained = None
-    ORBCalculator = None
-    ORB_IMPORT_ERROR = str(e)
-
-try:
-    from mattersim.forcefield import MatterSimCalculator
-    MATTERSIM_IMPORT_ERROR = None
-except Exception as e:
-    MatterSimCalculator = None
-    MATTERSIM_IMPORT_ERROR = str(e)
-
-try:
-    from sevenn.calculator import SevenNetCalculator
-    SEVENNET_IMPORT_ERROR = None
-except Exception as e:
-    SevenNetCalculator = None
-    SEVENNET_IMPORT_ERROR = str(e)
 
 from huggingface_hub import login
 
@@ -273,26 +248,6 @@ FAIRCHEM_MODELS = {
     "ESEN SM Direct All OMOL": "esen-sm-direct-all-omol"
 }
 
-# Define the available ORB models
-ORB_MODELS = {
-    "V3 OMOL Conserving": "orb-v3-conservative-omol",
-    "V3 OMOL Direct": "orb-v3-direct-omol"
-}
-
-# Define the available MatterSim models
-MATTERSIM_MODELS = {
-    "MatterSim v1.0.0-1M": "mattersim-v1.0.0-1M.pth",
-    "MatterSim v1.0.0-5M": "mattersim-v1.0.0-5M.pth",
-}
-
-# Define the available SevenNet models
-SEVENNET_MODELS = {
-    "SevenNet-0": "SevenNet-0",
-    "SevenNet-MF-OMPA": "7net-mf-ompa",
-    "SevenNet-OMAT": "7net-omat",
-    "SevenNet-l3i5": "7net-l3i5"
-}
-
 @st.cache_resource
 def get_mace_model(model_path, device, selected_default_dtype):
     # Create a model of the specified type.
@@ -306,14 +261,6 @@ def get_fairchem_model(selected_model, model_path, device, selected_task_type):
     else:
         calc = FAIRChemCalculator(predictor)
     return calc
-
-@st.cache_resource
-def get_mattersim_model(model_path, device):
-    return MatterSimCalculator(model_path=model_path, device=device)
-
-@st.cache_resource
-def get_sevennet_model(model_name, device):
-    return SevenNetCalculator(model=model_name, device=device)
 
 # Sidebar for file input and parameters
 st.sidebar.markdown("## Input Options")
@@ -393,12 +340,6 @@ if mace_mp is not None:
     available_model_types.append("MACE")
 if FAIRChemCalculator is not None:
     available_model_types.append("FairChem")
-if ORBCalculator is not None:
-    available_model_types.append("ORB")
-if MatterSimCalculator is not None:
-    available_model_types.append("MatterSim")
-if SevenNetCalculator is not None:
-    available_model_types.append("SevenNet")
 
 model_type = None
 if not available_model_types:
@@ -412,12 +353,6 @@ if mace_mp is None:
     st.sidebar.caption(f"MACE unavailable in this deployment: {MACE_IMPORT_ERROR}")
 if FAIRChemCalculator is None:
     st.sidebar.caption(f"FairChem unavailable in this deployment: {FAIRCHEM_IMPORT_ERROR}")
-if ORBCalculator is None:
-    st.sidebar.caption(f"ORB unavailable in this deployment: {ORB_IMPORT_ERROR}")
-if MatterSimCalculator is None:
-    st.sidebar.caption(f"MatterSim unavailable in this deployment: {MATTERSIM_IMPORT_ERROR}")
-if SevenNetCalculator is None:
-    st.sidebar.caption(f"SevenNet unavailable in this deployment: {SEVENNET_IMPORT_ERROR}")
 
 selected_task_type = None
 selected_model = "N/A"
@@ -433,25 +368,6 @@ if model_type == "FairChem":
     if selected_model == "UMA Small":
         st.sidebar.warning("Meta FAIR Acceptable Use Policy. This model was developed by the Fundamental AI Research (FAIR) team at Meta. By using it, you agree to their acceptable use policy, which prohibits using their models to violate the law or others' rights, plan or develop activities that present a risk of death or harm, and deceive or mislead others.")
         selected_task_type = st.sidebar.selectbox("Select UMA Model Task Type:", ["omol", "omat", "omc", "odac", "oc20"])
-if model_type == "ORB":
-    selected_model = st.sidebar.selectbox("Select ORB Model:", list(ORB_MODELS.keys()))
-    model_path = ORB_MODELS[selected_model]
-    # if "omat" in selected_model:
-    #     st.sidebar.warning("Using model under Academic Software License (ASL) license, see [https://github.com/gabor1/ASL](https://github.com/gabor1/ASL). To use this model you accept the terms of the license.")
-    selected_default_dtype = st.sidebar.selectbox("Select Precision (default_dtype):", ['float32-high', 'float32-highest', 'float64'])
-if model_type == "MatterSim":
-    selected_model = st.sidebar.selectbox("Select MatterSim Model:", list(MATTERSIM_MODELS.keys()))
-    # For now, we'll assume the model needs to be downloaded or is available at a path.
-    # Since we can't easily download 1M/5M models on the fly without a URL, we'll try to load it.
-    # Users might need to download it manually or we'd need a direct link.
-    # Assuming MatterSimCalculator handles model loading/downloading if provided a name?
-    # Based on the example, it takes a path.
-    # Let's assume for this integration we pass the name and let the user know they might need the file.
-    model_path = MATTERSIM_MODELS[selected_model]
-    st.info("Note: MatterSim models (1M/5M) are large. Ensure you have the model file or that the calculator can download it.")
-if model_type == "SevenNet":
-    selected_model = st.sidebar.selectbox("Select SevenNet Model:", list(SEVENNET_MODELS.keys()))
-    model_name = SEVENNET_MODELS[selected_model]
 
 # Check atom count limit
 if atoms is not None and model_type is not None:
@@ -549,7 +465,7 @@ if atoms is not None:
         run_calculation = st.button("Run Calculation", type="primary", disabled=(model_type is None))
 
         if model_type is None:
-            st.info("Core calculation backends are enabled via `requirements.txt` -> `requirements-ml.txt`. For additional model families, add `-r requirements-optional.txt` into `requirements.txt` and redeploy.")
+            st.info("Core calculation backends are enabled via `requirements.txt` -> `requirements-ml.txt`.")
 
         if run_calculation:
             try:
@@ -568,29 +484,6 @@ if atoms is not None:
                         # So just a dummy statement to swithc torch to 32 bit
                         calc = get_mace_model('https://github.com/ACEsuit/mace-mp/releases/download/mace_mp_0/2023-12-10-mace-128-L0_energy_epoch-249.model', 'cpu', 'float32')
                         calc = get_fairchem_model(selected_model, model_path, device, selected_task_type)
-                    elif model_type == "ORB":
-                        st.write("Setting up ORB calculator...")
-                        orbff = pretrained.orb_v3_conservative_inf_omat(device=device, precision=selected_default_dtype)
-                        calc = ORBCalculator(orbff, device=device)
-                    elif model_type == "MatterSim":
-                        st.write("Setting up MatterSim calculator...")
-                        # Since we don't have the files locally, we might need a way to get them.
-                        # The example showed loading from a path.
-                        # If the library supports auto-downloading, great. If not, this might fail without the file.
-                        # For now, we try to initialize it.
-                        try:
-                             calc = get_mattersim_model(model_path, device)
-                        except Exception as e:
-                             st.error(f"Failed to load MatterSim model: {e}")
-                             st.stop()
-                    elif model_type == "SevenNet":
-                        st.write("Setting up SevenNet calculator...")
-                        try:
-                            calc = get_sevennet_model(model_name, device)
-                        except Exception as e:
-                            st.error(f"Failed to load SevenNet model: {e}")
-                            st.stop()
-
                     # Attach calculator to atoms
                     calc_atoms.calc = calc
                     
